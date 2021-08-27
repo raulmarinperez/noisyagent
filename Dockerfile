@@ -9,5 +9,6 @@ RUN apt-get update && \
 RUN python3 -m pip install --no-cache-dir --no-input --upgrade pip
 ADD requirements.txt /root/requirements.txt
 RUN python3 -m pip install --no-cache-dir --no-input -r /root/requirements.txt
+RUN mkdir /etc/noisyagent
 ADD noisyagent.py /root/noisyagent.py
-ENTRYPOINT ["/usr/bin/python3", "/root/noisyagent.py", "/root/noisyagent.yaml"]
+ENTRYPOINT ["/usr/bin/python3", "/root/noisyagent.py", "/etc/noisyagent/noisyagent.yaml"]

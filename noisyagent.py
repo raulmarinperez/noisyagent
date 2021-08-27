@@ -6,13 +6,13 @@ import os
 
 release="0.1"
 
-def fill_disk(volume, size, rate):
-  logging.debug(f'Filling {volume} with {size}M in {rate} seconds.')
+def fill_disk(volume, size, duration):
+  logging.debug(f'Filling {volume} with {size}M in {duration} seconds.')
 
-  filesize = int(size/rate*1024*1024)
+  filesize = int(size/duration*1024*1024)
   logging.debug(f'Creating files {filesize}M big')
 
-  for i in range(1,rate):
+  for i in range(1,duration):
     time.sleep(1)
     with open(f'{volume}/fill_disk{i}.bin', 'wb') as fout:
          logging.debug(f"")
@@ -39,5 +39,5 @@ if __name__ == "__main__":
 
   volume = agent_cfg['data_volume']
   size = agent_cfg['volume_size']
-  rate = agent_cfg['filling_rate']
-  fill_disk(volume, size, rate)
+  duration = agent_cfg['filling_duration']
+  fill_disk(volume, size, duration)

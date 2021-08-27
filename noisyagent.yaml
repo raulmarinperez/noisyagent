@@ -3,4 +3,4 @@ data_volume: /tmp/noisyagent
 # Amount of size (in MB) to create
 volume_size: 5
 # How much time (in seconds) will take to create the random content
-filling_rate: 10
+filling_duration: 600
