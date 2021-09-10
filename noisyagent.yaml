@@ -1,7 +1,21 @@
 # Folder that will be used to create random content
 data_volume: /tmp/noisyagent
+
 # Amount of size (in MB) to create
 volume_size: 5
+
 # How much time (in seconds) will take to create the random content
 #filling_duration: 12600 # 3.5 hours
-filling_duration: 600
+filling_duration: 60
+
+# How long the simulation is running for (in seconds)
+simulation_duration: 120
+
+# GH repo where releases are published
+gh_repo_name: raulmarinperez/noisyagent
+
+# GH token to deal with repo's releases
+gh_personal_token: XXXXX
+
+# Path to the file with the news
+news_file_path: /home/rmarin/repos/noisyagent/news.xml
