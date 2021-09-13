@@ -6,7 +6,6 @@ charset-normalizer==2.0.4
 event-scheduler==0.1.2
 idna==3.2
 multidict==5.1.0
-pkg_resources==0.0.0
 PyYAML==5.4.1
 requests==2.26.0
 typing-extensions==3.10.0.2

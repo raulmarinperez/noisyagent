@@ -1,6 +1,6 @@
-# docker build -t noisyagent:0.1 .
+# docker build -t noisyagent:0.3 .
 # docker run -it --rm --hostname noisyagent noisyagent:0.1 /bin/sh
-# docker run -d --rm --name noisyagent -v /home/rmarin/repos/noisyagent/noisyagent.yaml:/root/noisyagent.yaml -v /tmp/noisyagent:/tmp/noisyagent noisyagent:0.1
+# docker run -d --rm --name noisyagent -p 8080:8080/tcp -v /home/rmarin/repos/noisyagent/noisyagent.yaml:/etc/noisyagent/noisyagent.yaml -v /tmp/noisyagent:/tmp/noisyagent noisyagent:0.3
 
 FROM debian:buster-slim
 RUN apt-get update && \
@@ -8,6 +8,7 @@ RUN apt-get update && \
     apt-get clean
 RUN python3 -m pip install --no-cache-dir --no-input --upgrade pip
 ADD requirements.txt /root/requirements.txt
+ADD news.xml /root/news.xml
 RUN python3 -m pip install --no-cache-dir --no-input -r /root/requirements.txt
 RUN mkdir /etc/noisyagent
 ADD noisyagent.py /root/noisyagent.py

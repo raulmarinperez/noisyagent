@@ -13,7 +13,7 @@ import time
 import glob
 import os
 
-release="0.1"
+release="0.3"
 
 # Auxiliary classes
 #
@@ -86,7 +86,7 @@ class NewsFeedWebServer(Thread):
     # 1. Starting the server (bound to TCP port 8080)
     #    * News file path injected as described here: https://www.raspberrypi.org/forums/viewtopic.php?t=66940
     NewsFeedRequestHandler.news_file_path = self.news_file_path
-    web_server = HTTPServer(("localhost", 8080), NewsFeedRequestHandler)
+    web_server = HTTPServer(('', 8080), NewsFeedRequestHandler)
     logging.info("Server started http://localhost:8080")
     # 2. Making the web server serve request forever until interrupted
     #    (CTRL+C is not caught when running in a thread; TBD: tear it down in a different way)
