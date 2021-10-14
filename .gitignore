@@ -127,3 +127,9 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# Added by rmarin
+bin/
+include/
+lib64
+pyvenv.cfg

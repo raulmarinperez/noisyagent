@@ -18,7 +18,7 @@ release="0.3"
 # Auxiliary classes
 #
 
-class NewsFeedRequestHandler(BaseHTTPRequestHandler):
+class AgentRequestHandler(BaseHTTPRequestHandler):
   ''' Auxiliary class implementing a HTTPRequestHandler for our web server.
   '''
 
@@ -42,6 +42,44 @@ class NewsFeedRequestHandler(BaseHTTPRequestHandler):
                           dt_i_date.strftime("%a, %d %b %Y"))
     # 2. Return the new string
     return news
+
+  def reset_simulation(self):
+    ''' Method resetting the whole simulation,
+        Parameters:
+          None
+        Return:
+          A message to be sent back in the response.
+    '''
+    (gh_repo_name, gh_personal_token, data_volume) = self.d_reset_setup
+    reset(gh_repo_name, gh_personal_token, data_volume)
+
+  def start_diskfilling(self):
+    ''' Method starting the disk filling simulation
+        Parameters:
+          None
+        Return:
+          A message to be sent back in the response.
+    '''
+    # 1. Stop the task if it was running
+    if self.event_id != None:
+      self.stop_diskfilling()
+    # 2. Start the tast and keep the event id
+    (volume, size, filling_duration, simulation_duration) = self.d_disk_filling_setup
+    logging.info(f"""(volume, size, filling_duration, simulation_duration)=
+({volume}, {size}, {filling_duration}, {simulation_duration})""")
+    self.event_id = self.event_scheduler.enter(0, 0, disk_filling,(volume, size, filling_duration))
+    logging.info(f"event_id={self.event_id}")
+
+  def stop_diskfilling(self):
+    ''' Method stopping the disk filling simulation
+        Parameters:
+          None
+        Return:
+          A message to be sent back in the response.
+    '''
+    logging.info(f"event_id={self.event_id}")
+    if self.event_id != None:
+      self.event_scheduler.cancel(self.event_id)
     
   def do_GET(self):
     ''' This function implements the logic to server HTTP GET request
@@ -51,28 +89,48 @@ class NewsFeedRequestHandler(BaseHTTPRequestHandler):
         Return:
           None - This function doesn't return anything
     '''
-    # 1. Setup response code and headers
-    self.send_response(200)
-    self.send_header("Content-type", "application/xml")
-    self.end_headers()
-    # 2. Read the file containing the news from the file,
-    #    replace the place holders and put it into the response.
-    news = Path(self.news_file_path).read_text()    
-    self.wfile.write(bytes(self.update_dates(news), "utf-8"))
+    logging.info(f"Path = {self.path}")
+    response_code = 200
+    response_message = "Action executed"
 
-class NewsFeedWebServer(Thread):
+    # 1. Dispatch what's requested by analyzing the path
+    if self.path.startswith("/reset"):
+      self.reset_simulation()
+    elif self.path.startswith("/start_diskfilling"):
+      self.start_diskfilling()
+    elif self.path.startswith("/stop_diskfilling"):
+      self.stop_diskfilling()
+    else:
+      response_code = 404
+      response_message = "Action unknown"
+
+    # 2. Response back to the client
+    # 2.1. Setup response code and headers
+    self.send_response(response_code, response_message)
+    self.send_header("Content-type", "application/txt")
+    self.end_headers()
+    # 2.2. Read the file containing the news from the file,
+    #    replace the place holders and put it into the response.
+    #news = Path(self.news_file_path).read_text()    
+    #self.wfile.write(bytes(self.update_dates(news), "utf-8"))
+
+class AgentWebServer(Thread):
   ''' Class that will be used to run a web server in a thread concurrently 
       with the rest of the tasks.
   '''
 
-  def __init__(self, news_file_path):
+  def __init__(self, event_scheduler, d_reset_setup, d_disk_filling_setup):
     ''' Class initialization. No additional code needed at the moment.
         Parameters:
-          news_file_path - path to the file containing the XML file with the news
+          event_scheduler      - instance to the scheduler to handle the different tasks
+          d_reset_setup        - dictionary containing all the params to reset the simulation
+          d_disk_filling_setup - dictionary containing all the params to start the disk filling simulation
         Return:
           None - This function doesn't return anything
     '''
-    self.news_file_path = news_file_path
+    self.event_scheduler = event_scheduler
+    self.d_reset_setup = d_reset_setup
+    self.d_disk_filling_setup = d_disk_filling_setup
     Thread.__init__(self)
 
   def run(self):
@@ -85,8 +143,11 @@ class NewsFeedWebServer(Thread):
     '''
     # 1. Starting the server (bound to TCP port 8080)
     #    * News file path injected as described here: https://www.raspberrypi.org/forums/viewtopic.php?t=66940
-    NewsFeedRequestHandler.news_file_path = self.news_file_path
-    web_server = HTTPServer(('', 8080), NewsFeedRequestHandler)
+    AgentRequestHandler.event_scheduler = self.event_scheduler
+    AgentRequestHandler.d_reset_setup = self.d_reset_setup
+    AgentRequestHandler.d_disk_filling_setup = self.d_disk_filling_setup
+    AgentRequestHandler.event_id = None
+    web_server = HTTPServer(('', 8080), AgentRequestHandler)
     logging.info("Server started http://localhost:8080")
     # 2. Making the web server serve request forever until interrupted
     #    (CTRL+C is not caught when running in a thread; TBD: tear it down in a different way)
@@ -272,38 +333,17 @@ def start_event_scheduler():
   # 2. Return the started instance
   return event_scheduler
 
-def add_event(event_scheduler, function_name, d_script_config):
-  ''' It adds a new event to the event scheduler based on the input parameters.
+def start_web_server(event_scheduler, d_reset_setup, d_disk_filling_setup):
+  ''' It starts a new thread running a web server which handles request to control the simulation
       Parameters:
-        event_scheduler - a reference to a started EventScheduler instance
-        function_name   - a string with the name of the function to schedule
-        d_script_config - the dictionary containing the configuration of the script
-      Return:
-        None - This function doesn't return anything
-  '''
-  simulation_duration = d_script_config['simulation_duration']
-  # 1. Get the appropiate configuration parameters based on the function
-  if function_name == "disk_filling":
-    (volume, size, duration) = (d_script_config['data_volume'],
-                                d_script_config['volume_size'],
-                                d_script_config['filling_duration'])
-    event_scheduler.enter_recurring(simulation_duration, 0, disk_filling, (volume, size, duration))
-  elif function_name == "reset":
-    (repo_name, personal_token, volume) = (d_script_config['gh_repo_name'],
-                                           d_script_config['gh_personal_token'],
-                                           d_script_config['data_volume'])
-    # reset should happen before anything else (triggered at 90% of the simulation duration)
-    event_scheduler.enter_recurring(simulation_duration*0.9, 0, reset, (repo_name, personal_token, volume))
-
-def start_news_feed_service(news_file_path):
-  ''' It starts a new thread running a web server which will be server news
-      Parameters:
-        news_file_path - path to the file containing the XML file with the news
+        event_scheduler      - instance to the scheduler to handle the different tasks
+        d_reset_setup        - dictionary containing all the params to reset the simulation
+        d_disk_filling_setup - dictionary containing all the params to start the disk filling simulation
       Return:
         None - This function doesn't return anything
   '''
   # 1. Create a new instance of the web server and set it up as a daemon service
-  web_server = NewsFeedWebServer(news_file_path)
+  web_server = AgentWebServer(event_scheduler, d_reset_setup, d_disk_filling_setup)
   web_server.daemon = True
   # 2. Start the web server
   web_server.start()  
@@ -325,20 +365,29 @@ if __name__ == "__main__":
   
   # 2. Starting the scheduler and adding tasks
   event_scheduler = start_event_scheduler()
-  add_event(event_scheduler, "reset", d_script_config)
-  add_event(event_scheduler, "disk_filling", d_script_config)
+  #add_event(event_scheduler, "reset", d_script_config)
+  #add_event(event_scheduler, "disk_filling", d_script_config)
 
   # 3. Start the internal web server serving simulating the news feed service
-  start_news_feed_service(d_script_config['news_file_path'])
-
+  #start_news_feed_service(d_script_config['news_file_path'])
+  
   # 4. Start the new release simulation
   # 4.1 Reset the context to start from the simulation from scratch
-  (repo_name, personal_token, volume) = (d_script_config['gh_repo_name'],
-                                         d_script_config['gh_personal_token'],
-                                         d_script_config['data_volume'])
-  reset(repo_name, personal_token, volume)
+  #(repo_name, personal_token, volume) = (d_script_config['gh_repo_name'],
+  #                                       d_script_config['gh_personal_token'],
+  #                                       d_script_config['data_volume'])
+  #reset(repo_name, personal_token, volume)
   # 4.2 Start filling up the disk
-  (volume, size, duration) = (d_script_config['data_volume'],
-                              d_script_config['volume_size'],
-                              d_script_config['filling_duration'])
-  disk_filling(volume, size, duration)
+  #(volume, size, duration) = (d_script_config['data_volume'],
+  #                            d_script_config['volume_size'],
+  #                            d_script_config['filling_duration'])
+  #disk_filling(volume, size, duration)
+
+  d_reset_setup = (d_script_config['gh_repo_name'],
+                   d_script_config['gh_personal_token'],
+                   d_script_config['data_volume'])
+  d_disk_filling_setup = (d_script_config['data_volume'],
+                          d_script_config['volume_size'],
+                          d_script_config['filling_duration'],
+                          d_script_config['simulation_duration'])
+  start_web_server(event_scheduler, d_reset_setup, d_disk_filling_setup)
