@@ -183,6 +183,11 @@ def disk_filling(volume, size, duration):
     with open(f'{volume}/fill_disk{i}.bin', 'wb') as fout:
          fout.write(os.urandom(filesize))
          fout.flush()
+  # 3. Displaying an error message
+  logging.error(">>> file(/dev/full, 'a').write('\n')")
+  logging.error("close failed in file object destructor:")
+  logging.error("IOError: [Errno 28] No space left on device")
+  
 def get_release_id(gh_repo_name, gh_personal_token):
   ''' It get the release id of release v1.9
       Parameters:
